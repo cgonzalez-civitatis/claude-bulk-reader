@@ -9,13 +9,16 @@
 
 set -uo pipefail
 
-MIN_LINES="${SHUNT_MIN_LINES:-350}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=shunt-common.sh
+. "$SCRIPT_DIR/shunt-common.sh"
 
 # Consumimos stdin siempre y primero: salir antes de leerlo provoca SIGPIPE
 # en el proceso que nos escribe el payload.
 input=$(cat)
 
-[[ "${SHUNT_OFF:-0}" == "1" ]] && exit 0
+shunt_resolve "$(echo "$input" | jq -r '.session_id // ""')"
+(( SHUNT_ACTIVE )) || exit 0
 
 command=$(echo "$input" | jq -r '.tool_input.command // ""')
 [[ -z "$command" ]] && exit 0
@@ -97,7 +100,7 @@ Elige una de estas vías:
   2. Acota la lectura: sed -n 'A,Bp', head -N, o un rango por debajo del umbral.
   3. Filtra: grep/rg sobre el archivo, o un pipe que reduzca la salida.
 
-Para desactivar el shunt en esta sesión: SHUNT_OFF=1
+Para desactivar el shunt en esta sesión:  shunt off
 MSG
   exit 2
 fi

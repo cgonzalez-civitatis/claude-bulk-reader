@@ -44,7 +44,10 @@ if [[ "${1:-}" == "--uninstall" ]]; then
   backup_settings
   tmp=$(mktemp); strip_shunt "$SETTINGS" > "$tmp"
   jq empty "$tmp" && mv "$tmp" "$SETTINGS"
-  rm -f "$DEST_SCRIPTS/shunt-file-size.sh" "$DEST_SCRIPTS/shunt-bash-read.sh" "$DEST_AGENTS/bulk-reader.md"
+  rm -f "$DEST_SCRIPTS/shunt-file-size.sh" "$DEST_SCRIPTS/shunt-bash-read.sh" \
+        "$DEST_SCRIPTS/shunt-common.sh" "$DEST_AGENTS/bulk-reader.md"
+  rm -f "$HOME/.local/bin/shunt" "$DEST_SCRIPTS/shunt"
+  rm -rf "$CLAUDE_DIR/shunt-state"
   green "Shunt desinstalado."
   echo "Recuerda quitar a mano la sección del shunt de tu CLAUDE.md, si la añadiste."
   exit 0
@@ -55,7 +58,23 @@ mkdir -p "$DEST_SCRIPTS" "$DEST_AGENTS" "$CLAUDE_DIR"
 
 install -m 0755 "$SRC/hooks/shunt-file-size.sh" "$DEST_SCRIPTS/shunt-file-size.sh"
 install -m 0755 "$SRC/hooks/shunt-bash-read.sh" "$DEST_SCRIPTS/shunt-bash-read.sh"
+install -m 0644 "$SRC/hooks/shunt-common.sh"    "$DEST_SCRIPTS/shunt-common.sh"
 info "Hooks -> $DEST_SCRIPTS/"
+
+# El CLI va a un directorio del PATH si lo hay, para poder escribir `shunt off`.
+CLI_DEST=""
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) CLI_DEST="$HOME/.local/bin" ;;
+  *":$HOME/bin:"*)        CLI_DEST="$HOME/bin" ;;
+esac
+if [[ -n "$CLI_DEST" ]]; then
+  mkdir -p "$CLI_DEST"; install -m 0755 "$SRC/bin/shunt" "$CLI_DEST/shunt"
+  info "CLI -> $CLI_DEST/shunt  (ya en tu PATH)"
+else
+  install -m 0755 "$SRC/bin/shunt" "$DEST_SCRIPTS/shunt"
+  info "CLI -> $DEST_SCRIPTS/shunt"
+  CLI_WARN=1
+fi
 
 install -m 0644 "$SRC/agents/bulk-reader.md" "$DEST_AGENTS/bulk-reader.md"
 info "Subagente -> $DEST_AGENTS/bulk-reader.md"
@@ -86,3 +105,9 @@ echo "Último paso, manual: copia el contenido de CLAUDE.md.example en tu"
 echo "~/.claude/CLAUDE.md. Sin eso los hooks bloquean pero nadie sabe delegar."
 echo
 echo "Comprueba la instalación con:  ./test/test-hooks.sh"
+if [[ "${CLI_WARN:-0}" == "1" ]]; then
+  echo
+  echo "Nota: ningún directorio de tu PATH servía para el CLI. Para poder escribir"
+  echo "  shunt off   en vez de la ruta completa, añade a tu shell:"
+  echo "    export PATH=\"$DEST_SCRIPTS:\$PATH\""
+fi

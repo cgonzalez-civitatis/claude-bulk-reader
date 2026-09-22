@@ -58,12 +58,39 @@ y lo que le dice cuándo **no** delegar (editar, arquitectura, seguridad).
 
 Desinstalar: `./install.sh --uninstall`
 
-## Ajustes
+## Activar y desactivar desde la sesión
 
-| Variable | Efecto |
+`SHUNT_OFF=1` sigue funcionando, pero es incómodo: cada comando Bash corre en un
+shell nuevo, así que hay que prefijarlo en cada llamada — y para la tool `Read`
+no hay forma de pasarlo. Por eso el estado vive en disco y hay un CLI:
+
+```bash
+shunt              # estado efectivo
+shunt off          # desactiva en ESTA sesión
+shunt on           # reactiva en ESTA sesión
+shunt 600          # umbral solo para ESTA sesión
+shunt reset        # olvida el ajuste de sesión
+shunt off --global # todas las sesiones, incluidas las futuras
+```
+
+Funciona porque Claude Code exporta `CLAUDE_CODE_SESSION_ID` al shell, y ese id
+coincide con el `session_id` que reciben los hooks en su payload. El estado se
+guarda en `~/.claude/shunt-state/` y los ficheros de sesiones de más de 7 días se
+borran solos.
+
+Puedes pedírselo a Claude en lenguaje natural ("desactiva el shunt un momento") y
+lo ejecutará por ti.
+
+**Precedencia**, de mayor a menor:
+
+| | Ámbito |
 |---|---|
-| `SHUNT_MIN_LINES=600` | Sube el umbral (por defecto 350) |
-| `SHUNT_OFF=1` | Desactiva ambos hooks en la sesión |
+| `SHUNT_OFF` / `SHUNT_MIN_LINES` en el entorno | ese comando |
+| `~/.claude/shunt-state/<session_id>` | la sesión |
+| `~/.claude/shunt-state/global` | todas |
+| Defaults | activo, 350 líneas |
+
+## Ajustes
 
 Quedan siempre exentas las rutas `CLAUDE.md`, `MEMORY.md`, `.claude/` y `.env`,
 además de binarios e imágenes.
@@ -75,7 +102,8 @@ además de binarios e imágenes.
 ./test/test-hooks.sh --installed  # contra los ya instalados
 ```
 
-25 casos, incluidos heredocs, pipes, redirecciones y comandos encadenados.
+33 casos: heredocs, pipes, redirecciones, comandos encadenados y la
+precedencia entre entorno, sesión y global.
 
 ## ¿Cuánto ahorra?
 

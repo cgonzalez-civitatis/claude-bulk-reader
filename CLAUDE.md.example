@@ -2,8 +2,9 @@
 
 Hay dos hooks activos que bloquean el volcado íntegro de archivos de más de
 **350 líneas** al contexto principal: uno sobre `Read` y otro sobre `Bash`
-(`cat`, `head`, `tail`, `sed -n`, `nl`, `bat`). El umbral se ajusta con
-`SHUNT_MIN_LINES`; `SHUNT_OFF=1` los desactiva en una sesión.
+(`cat`, `head`, `tail`, `sed -n`, `nl`, `bat`). Se controlan con el comando `shunt`:
+`shunt off` los desactiva en esta sesión, `shunt 600` sube el umbral,
+`shunt` muestra el estado y `shunt reset` lo deja como estaba.
 
 El objetivo no es ahorrar factura, es **preservar el contexto principal**:
 menos compactaciones y sesiones largas más coherentes.
@@ -17,7 +18,7 @@ menos compactaciones y sesiones largas más coherentes.
 - **Necesito editar y ya sé dónde** → lee el fragmento exacto con `offset`/`limit`
   o `sed -n 'A,Bp'`. Esas lecturas pasan sin bloqueo, y son la vía correcta.
 - **Decisión de arquitectura, seguridad o corrección** → léelo tú, entero, con
-  `SHUNT_OFF=1`. Un extracto de segunda mano no basta para eso.
+  `shunt off`. Un extracto de segunda mano no basta para eso.
 
 **Estás autorizado a invocar `bulk-reader` por iniciativa propia**, sin preguntar.
 Es lectura, es barato y es el comportamiento buscado.
@@ -30,7 +31,7 @@ contexto que la lectura que intentabas evitar. Las salidas válidas son, en orde
 1. `bulk-reader` con la pregunta concreta.
 2. `grep`/`rg` o un pipe, si buscabas algo puntual.
 3. Un único rango acotado, si ya sabes qué líneas quieres.
-4. `SHUNT_OFF=1`, si de verdad necesitas el archivo entero.
+4. `shunt off`, si de verdad necesitas el archivo entero (y `shunt on` después).
 
 Si acabas peleándote con el umbral varias veces seguidas en la misma tarea,
 dilo en voz alta y propón subirlo — no lo sortees en silencio.

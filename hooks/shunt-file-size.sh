@@ -6,14 +6,16 @@
 
 set -euo pipefail
 
-MIN_LINES="${SHUNT_MIN_LINES:-350}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=shunt-common.sh
+. "$SCRIPT_DIR/shunt-common.sh"
 
 # Consumimos stdin siempre y primero: salir antes de leerlo provoca SIGPIPE
 # en el proceso que nos escribe el payload.
 input=$(cat)
 
-# Escotilla de salida: SHUNT_OFF=1 desactiva el hook en la sesión.
-[[ "${SHUNT_OFF:-0}" == "1" ]] && exit 0
+shunt_resolve "$(echo "$input" | jq -r '.session_id // ""')"
+(( SHUNT_ACTIVE )) || exit 0
 file_path=$(echo "$input" | jq -r '.tool_input.file_path // ""')
 offset=$(echo "$input"   | jq -r '.tool_input.offset // ""')
 limit=$(echo "$input"    | jq -r '.tool_input.limit // ""')
@@ -46,7 +48,7 @@ Elige una de estas dos vías:
   2. Si ya sabes qué fragmento necesitas para editarlo, vuelve a llamar a Read
      con offset y limit explícitos — esas lecturas pasan sin bloqueo.
 
-Para desactivar el shunt en esta sesión: SHUNT_OFF=1
+Para desactivar el shunt en esta sesión:  shunt off
 MSG
   exit 2
 fi

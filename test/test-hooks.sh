@@ -63,6 +63,31 @@ chk 0 "$(runr "$TMP/big.java" 10 40)"                  "lectura parcial con offs
 chk 0 "$(runr "$TMP/small.java" null null)"            "archivo pequeño"
 chk 0 "$(runr "/no/existe.java" null null)"            "archivo inexistente"
 
+echo "Estado por sesión y global"
+export SHUNT_STATE_DIR="$TMP/state"; mkdir -p "$SHUNT_STATE_DIR"
+SID="test-session"
+runbs() { jq -nc --arg c "$1" --arg s "$SID" '{session_id:$s,tool_input:{command:$c}}' \
+            | "$BASH_HOOK" >/dev/null 2>&1; echo $?; }
+BIG="cat $TMP/big.java"   # 500 líneas: bloquea con el umbral por defecto
+
+chk 2 "$(runbs "$BIG")"                            "sin estado: bloquea"
+echo off > "$SHUNT_STATE_DIR/$SID"
+chk 0 "$(runbs "$BIG")"                            "sesión off: pasa"
+echo 600 > "$SHUNT_STATE_DIR/$SID"
+chk 0 "$(runbs "$BIG")"                            "sesión umbral 600: pasa"
+echo 100 > "$SHUNT_STATE_DIR/$SID"
+chk 2 "$(runbs "$BIG")"                            "sesión umbral 100: bloquea"
+rm -f "$SHUNT_STATE_DIR/$SID"
+echo off > "$SHUNT_STATE_DIR/global"
+chk 0 "$(runbs "$BIG")"                            "global off: pasa"
+echo on > "$SHUNT_STATE_DIR/$SID"
+chk 2 "$(runbs "$BIG")"                            "sesión on pisa global off"
+chk 0 "$(SHUNT_OFF=1 runbs "$BIG")"                "SHUNT_OFF del entorno pisa todo"
+echo basura > "$SHUNT_STATE_DIR/$SID"
+chk 2 "$(runbs "$BIG")"                            "estado corrupto: se ignora"
+rm -f "$SHUNT_STATE_DIR/$SID" "$SHUNT_STATE_DIR/global"
+unset SHUNT_STATE_DIR
+
 echo
 echo "$pass ok, $fail fallos"
 [[ $fail -eq 0 ]]

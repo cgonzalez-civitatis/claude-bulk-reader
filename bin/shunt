@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# shunt — activa, desactiva o reajusta el shunt desde una sesión de Claude Code.
+#
+#   shunt              estado efectivo
+#   shunt off          desactiva en ESTA sesión
+#   shunt on           reactiva en ESTA sesión
+#   shunt 600          umbral de ESTA sesión
+#   shunt reset        olvida el ajuste de sesión (vuelve al global/default)
+#   shunt ... --global  aplica a todas las sesiones, incluidas las futuras
+#
+# El id de sesión sale de CLAUDE_CODE_SESSION_ID, que Claude Code exporta al
+# shell y coincide con el session_id que reciben los hooks.
+
+set -euo pipefail
+
+STATE_DIR="${SHUNT_STATE_DIR:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/shunt-state}"
+mkdir -p "$STATE_DIR"
+
+scope="session"; arg=""
+for a in "$@"; do
+  case "$a" in
+    --global) scope="global" ;;
+    *) arg="$a" ;;
+  esac
+done
+
+sid="${CLAUDE_CODE_SESSION_ID:-}"
+if [[ "$scope" == "session" && -z "$sid" ]]; then
+  echo "No hay CLAUDE_CODE_SESSION_ID (¿fuera de Claude Code?). Usa --global." >&2
+  exit 1
+fi
+file="$STATE_DIR/$( [[ "$scope" == global ]] && echo global || echo "$sid" )"
+
+read_state() { [[ -r "$1" ]] && tr -d '[:space:]' < "$1" || echo ""; }
+
+efectivo() {
+  local g s; g=$(read_state "$STATE_DIR/global"); s=""
+  [[ -n "$sid" ]] && s=$(read_state "$STATE_DIR/$sid")
+  local v="${s:-${g:-}}"
+  local origen="default"
+  [[ -n "$g" ]] && origen="global"
+  [[ -n "$s" ]] && origen="sesión"
+  if [[ "${SHUNT_OFF:-0}" == "1" ]]; then echo "desactivado (por SHUNT_OFF en el entorno)"; return; fi
+  case "$v" in
+    off) echo "desactivado (ámbito: $origen)" ;;
+    ""|on) echo "activo, umbral 350 líneas (ámbito: $origen)" ;;
+    *) echo "activo, umbral $v líneas (ámbito: $origen)" ;;
+  esac
+}
+
+case "${arg:-}" in
+  ""|status)
+    echo "Shunt: $(efectivo)"
+    [[ -n "$sid" ]] && echo "Sesión: $sid"
+    ;;
+  off)   echo off > "$file"; echo "Shunt desactivado ($scope). Reactiva con: shunt on" ;;
+  on)    echo on  > "$file"; echo "Shunt activo ($scope)." ;;
+  reset) rm -f "$file";      echo "Ajuste de $scope eliminado. Ahora: $(efectivo)" ;;
+  ''|*[!0-9]*)
+    echo "Uso: shunt [off|on|reset|<n.º de líneas>] [--global]" >&2; exit 1 ;;
+  *)
+    echo "$arg" > "$file"; echo "Umbral a $arg líneas ($scope)." ;;
+esac
+
+# Limpieza de estados de sesiones viejas (>7 días).
+find "$STATE_DIR" -maxdepth 1 -type f ! -name global -mtime +7 -delete 2>/dev/null || true
