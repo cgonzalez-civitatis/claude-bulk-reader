@@ -11,6 +11,24 @@
 
 SHUNT_STATE_DIR="${SHUNT_STATE_DIR:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/shunt-state}"
 
+# Agentes exentos: los que SON el destinatario de la delegación. Bloquearles no
+# les hace delegar (no tienen a quién), solo les hace trocear el fichero, que
+# cuesta más que leerlo entero. Su contexto además se destruye al terminar.
+# Los subagentes "trabajadores" NO van aquí: su contexto les dura toda la tarea
+# y sí pueden delegar, así que el shunt les sirve igual que a la sesión principal.
+SHUNT_EXEMPT_AGENTS="${SHUNT_EXEMPT_AGENTS:-bulk-reader}"
+
+# shunt_agent_exempt <agent_type> -> 0 si está exento
+shunt_agent_exempt() {
+  local t="${1:-}" a
+  [[ -z "$t" ]] && return 1          # sin agent_type = sesión principal
+  local IFS=,
+  for a in $SHUNT_EXEMPT_AGENTS; do
+    [[ "${a// /}" == "$t" ]] && return 0
+  done
+  return 1
+}
+
 # shunt_resolve <session_id> -> exporta SHUNT_ACTIVE (0/1) y MIN_LINES
 shunt_resolve() {
   local sid="${1:-}" state=""

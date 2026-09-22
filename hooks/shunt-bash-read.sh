@@ -17,6 +17,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # en el proceso que nos escribe el payload.
 input=$(cat)
 
+shunt_agent_exempt "$(echo "$input" | jq -r '.agent_type // ""')" && exit 0
+
 shunt_resolve "$(echo "$input" | jq -r '.session_id // ""')"
 (( SHUNT_ACTIVE )) || exit 0
 

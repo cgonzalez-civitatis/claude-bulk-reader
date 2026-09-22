@@ -58,6 +58,25 @@ y lo que le dice cuándo **no** delegar (editar, arquitectura, seguridad).
 
 Desinstalar: `./install.sh --uninstall`
 
+## Subagentes: quién queda exento
+
+Los hooks se ejecutan **también dentro de los subagentes**, y su payload trae un
+campo `agent_type`. Eso permite distinguir dos casos que no se deben tratar igual:
+
+| | Su contexto | ¿Puede delegar? | ¿Le aplica el shunt? |
+|---|---|---|---|
+| Sesión principal | Dura toda la sesión | Sí | **Sí** |
+| Subagente trabajador (implementa, explora) | Le dura toda su tarea | Sí | **Sí** |
+| `bulk-reader` (el extractor) | Se destruye al terminar | No, es la hoja | **No** |
+
+Bloquear al extractor es contraproducente: no tiene a quién delegar, así que lee
+el fichero **a trozos**. Medido antes de la exención, `bulk-reader` gastó 22.763
+tokens haciendo 6 lecturas parciales de un fichero que podía leer de una vez.
+
+La lista se ajusta con `SHUNT_EXEMPT_AGENTS` (por defecto `bulk-reader`,
+separada por comas). Solo deberían entrar ahí agentes que sean destinatarios
+finales de una delegación, nunca los que hacen trabajo largo.
+
 ## Activar y desactivar desde la sesión
 
 `SHUNT_OFF=1` sigue funcionando, pero es incómodo: cada comando Bash corre en un
@@ -102,8 +121,8 @@ además de binarios e imágenes.
 ./test/test-hooks.sh --installed  # contra los ya instalados
 ```
 
-33 casos: heredocs, pipes, redirecciones, comandos encadenados y la
-precedencia entre entorno, sesión y global.
+40 casos: heredocs, pipes, redirecciones, comandos encadenados y la
+precedencia entre entorno, sesión y global, y la exención por agent_type.
 
 ## ¿Cuánto ahorra?
 

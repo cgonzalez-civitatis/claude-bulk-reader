@@ -88,6 +88,22 @@ chk 2 "$(runbs "$BIG")"                            "estado corrupto: se ignora"
 rm -f "$SHUNT_STATE_DIR/$SID" "$SHUNT_STATE_DIR/global"
 unset SHUNT_STATE_DIR
 
+echo "Exención por tipo de agente"
+runa() { jq -nc --arg c "$1" --arg a "$2" \
+           '{tool_input:{command:$c}} + (if $a=="" then {} else {agent_type:$a} end)' \
+         | "$BASH_HOOK" >/dev/null 2>&1; echo $?; }
+runra() { jq -nc --arg p "$1" --arg a "$2" \
+            '{tool_input:{file_path:$p}} + (if $a=="" then {} else {agent_type:$a} end)' \
+          | "$READ_HOOK" >/dev/null 2>&1; echo $?; }
+
+chk 2 "$(runa "cat $TMP/big.java" "")"              "sesión principal: bloquea"
+chk 0 "$(runa "cat $TMP/big.java" "bulk-reader")"   "bulk-reader exento (Bash)"
+chk 0 "$(runra "$TMP/big.java" "bulk-reader")"      "bulk-reader exento (Read)"
+chk 2 "$(runa "cat $TMP/big.java" "general-purpose")" "subagente trabajador: sigue bloqueado"
+chk 2 "$(runa "cat $TMP/big.java" "Explore")"       "Explore: sigue bloqueado"
+chk 0 "$(SHUNT_EXEMPT_AGENTS=Explore runa "cat $TMP/big.java" "Explore")" "lista de exentos configurable"
+chk 2 "$(SHUNT_EXEMPT_AGENTS=Explore runa "cat $TMP/big.java" "bulk-reader")" "lista a medida excluye al resto"
+
 echo
 echo "$pass ok, $fail fallos"
 [[ $fail -eq 0 ]]
