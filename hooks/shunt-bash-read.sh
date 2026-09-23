@@ -39,6 +39,7 @@ path_exempt() {
 
 blocked_file=""
 blocked_lines=0
+blocked_bytes=0
 
 check_segment() {
   local seg want="" cmd n range a b tok
@@ -77,10 +78,8 @@ check_segment() {
     tok="${tok%\"}"; tok="${tok#\"}"; tok="${tok%\'}"; tok="${tok#\'}"
     [[ -f "$tok" ]] || continue
     path_exempt "$tok" && continue
-    local lines
-    lines=$(wc -l < "$tok" 2>/dev/null || echo 0)
-    if (( lines > MIN_LINES )); then
-      blocked_file="$tok"; blocked_lines="$lines"
+    if shunt_file_over "$tok"; then
+      blocked_file="$tok"; blocked_lines="$FILE_LINES"; blocked_bytes="$FILE_BYTES"
       return 1
     fi
   done
@@ -94,7 +93,7 @@ done < <(echo "$command" | sed -E 's/(\|\||&&|;)/\n/g')
 
 if [[ -n "$blocked_file" ]]; then
   cat >&2 <<MSG
-Volcado completo bloqueado: ${blocked_file} tiene ${blocked_lines} líneas (umbral: ${MIN_LINES}).
+Volcado completo bloqueado: ${blocked_file} tiene ${blocked_lines} líneas y $(( blocked_bytes / 1024 )) KB (umbral: $(shunt_limits)).
 
 Elige una de estas vías:
   1. Delega en el subagente 'bulk-reader' (Haiku) con la pregunta concreta.

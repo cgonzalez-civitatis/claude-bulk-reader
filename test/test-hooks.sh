@@ -20,6 +20,8 @@ command -v jq >/dev/null || { echo "Falta jq"; exit 1; }
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 seq 1 500 > "$TMP/big.java"
 seq 1 100 > "$TMP/small.java"
+# Pocas líneas pero muy largas (~40 KB): el caso de los Markdown de planes.
+for i in $(seq 1 100); do printf '%0400d\n' "$i"; done > "$TMP/wide.md"
 
 pass=0; fail=0
 chk() { # $1=esperado $2=obtenido $3=descripción
@@ -41,6 +43,7 @@ chk 2 "$(runb "nl $TMP/big.java")"                     "nl"
 chk 2 "$(runb "tail -n 400 $TMP/big.java")"            "tail -n 400"
 chk 2 "$(runb "cat $TMP/small.java $TMP/big.java")"    "varios archivos, uno grande"
 chk 2 "$(runb "cd /tmp && cat $TMP/big.java")"         "tras &&"
+chk 2 "$(runb "cat $TMP/wide.md")"                     "pocas líneas pero >24 KB"
 
 echo "Hook de Bash — deben pasar (0)"
 chk 0 "$(runb "cat $TMP/small.java")"                  "archivo pequeño"
@@ -56,12 +59,16 @@ chk 0 "$(runb "wc -l $TMP/big.java")"                  "wc"
 chk 0 "$(runb "git status")"                           "comando no lector"
 chk 0 "$(runb "cat /no/existe.java")"                  "archivo inexistente"
 chk 0 "$(SHUNT_OFF=1 runb "cat $TMP/big.java")"        "SHUNT_OFF=1"
+chk 0 "$(runb "head -50 $TMP/wide.md")"                "archivo pesado, lectura acotada"
+chk 0 "$(SHUNT_MAX_BYTES=100000 runb "cat $TMP/wide.md")" "SHUNT_MAX_BYTES sube el umbral en bytes"
 
 echo "Hook de Read"
 chk 2 "$(runr "$TMP/big.java" null null)"              "lectura completa de archivo grande"
 chk 0 "$(runr "$TMP/big.java" 10 40)"                  "lectura parcial con offset/limit"
 chk 0 "$(runr "$TMP/small.java" null null)"            "archivo pequeño"
 chk 0 "$(runr "/no/existe.java" null null)"            "archivo inexistente"
+chk 2 "$(runr "$TMP/wide.md" null null)"               "lectura completa, pocas líneas pero >24 KB"
+chk 0 "$(runr "$TMP/wide.md" 1 20)"                    "archivo pesado con offset/limit"
 
 echo "Estado por sesión y global"
 export SHUNT_STATE_DIR="$TMP/state"; mkdir -p "$SHUNT_STATE_DIR"

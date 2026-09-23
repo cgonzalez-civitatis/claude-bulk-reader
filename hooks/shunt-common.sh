@@ -2,12 +2,14 @@
 # shunt-common.sh — resolución de estado compartida por los dos hooks.
 #
 # Precedencia (gana el primero):
-#   1. Variables de entorno  SHUNT_OFF / SHUNT_MIN_LINES
+#   1. Variables de entorno  SHUNT_OFF / SHUNT_MIN_LINES / SHUNT_MAX_BYTES
 #   2. Estado de la sesión   ~/.claude/shunt-state/<session_id>
 #   3. Estado global         ~/.claude/shunt-state/global
-#   4. Defaults              activo, 350 líneas
+#   4. Defaults              activo, 350 líneas o 24 KB
 #
 # El fichero de estado contiene "off" o un número de líneas.
+# El umbral en bytes solo se ajusta por entorno: existe para los ficheros de
+# pocas líneas muy largas (Markdown de planes), que el de líneas no ve.
 
 SHUNT_STATE_DIR="${SHUNT_STATE_DIR:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/shunt-state}"
 
@@ -33,6 +35,7 @@ shunt_agent_exempt() {
 shunt_resolve() {
   local sid="${1:-}" state=""
   MIN_LINES=350
+  MAX_BYTES=24576
   SHUNT_ACTIVE=1
 
   # 3. global, luego 2. sesión (la sesión pisa al global)
@@ -52,6 +55,17 @@ shunt_resolve() {
   # 1. el entorno manda sobre todo
   [[ "${SHUNT_OFF:-0}" == "1" ]] && SHUNT_ACTIVE=0
   [[ -n "${SHUNT_MIN_LINES:-}" ]] && MIN_LINES="$SHUNT_MIN_LINES"
+  [[ -n "${SHUNT_MAX_BYTES:-}" ]] && MAX_BYTES="$SHUNT_MAX_BYTES"
 
   return 0   # sin esto, la condición anterior aborta un script con `set -e`
 }
+
+# shunt_file_over <path> -> 0 si supera algún umbral; deja FILE_LINES, FILE_BYTES
+shunt_file_over() {
+  FILE_LINES=$(wc -l < "$1" 2>/dev/null || echo 0)
+  FILE_BYTES=$(wc -c < "$1" 2>/dev/null || echo 0)
+  (( FILE_LINES > MIN_LINES || FILE_BYTES > MAX_BYTES ))
+}
+
+# Texto de umbral para los mensajes de bloqueo.
+shunt_limits() { echo "${MIN_LINES} líneas o $(( MAX_BYTES / 1024 )) KB"; }

@@ -1,7 +1,7 @@
 ## Lectura de archivos grandes (shunt)
 
 Hay dos hooks activos que bloquean el volcado íntegro de archivos de más de
-**350 líneas** al contexto principal: uno sobre `Read` y otro sobre `Bash`
+**350 líneas o 24 KB** al contexto principal: uno sobre `Read` y otro sobre `Bash`
 (`cat`, `head`, `tail`, `sed -n`, `nl`, `bat`). Se controlan con el comando `shunt`:
 `shunt off` los desactiva en esta sesión, `shunt 600` sube el umbral,
 `shunt` muestra el estado y `shunt reset` lo deja como estaba.

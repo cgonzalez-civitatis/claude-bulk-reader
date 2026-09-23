@@ -37,14 +37,14 @@ efectivo() {
   local g s; g=$(read_state "$STATE_DIR/global"); s=""
   [[ -n "$sid" ]] && s=$(read_state "$STATE_DIR/$sid")
   local v="${s:-${g:-}}"
-  local origen="default"
+  local origen="default" kb=$(( ${SHUNT_MAX_BYTES:-24576} / 1024 ))
   [[ -n "$g" ]] && origen="global"
   [[ -n "$s" ]] && origen="sesión"
   if [[ "${SHUNT_OFF:-0}" == "1" ]]; then echo "desactivado (por SHUNT_OFF en el entorno)"; return; fi
   case "$v" in
     off) echo "desactivado (ámbito: $origen)" ;;
-    ""|on) echo "activo, umbral 350 líneas (ámbito: $origen)" ;;
-    *) echo "activo, umbral $v líneas (ámbito: $origen)" ;;
+    ""|on) echo "activo, umbral 350 líneas o $kb KB (ámbito: $origen)" ;;
+    *) echo "activo, umbral $v líneas o $kb KB (ámbito: $origen)" ;;
   esac
 }
 

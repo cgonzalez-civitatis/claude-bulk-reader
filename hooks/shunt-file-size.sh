@@ -38,11 +38,9 @@ if echo "$file_path" | grep -qiP '(CLAUDE\.md|MEMORY\.md|/\.claude/|\.env)'; the
   exit 0
 fi
 
-lines=$(wc -l < "$file_path" 2>/dev/null || echo 0)
-
-if (( lines > MIN_LINES )); then
+if shunt_file_over "$file_path"; then
   cat >&2 <<MSG
-Lectura completa bloqueada: ${file_path} tiene ${lines} líneas (umbral: ${MIN_LINES}).
+Lectura completa bloqueada: ${file_path} tiene ${FILE_LINES} líneas y $(( FILE_BYTES / 1024 )) KB (umbral: $(shunt_limits)).
 
 Elige una de estas dos vías:
   1. Delega en el subagente 'bulk-reader' (Haiku) con la pregunta concreta que

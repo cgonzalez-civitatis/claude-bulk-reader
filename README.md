@@ -15,7 +15,10 @@ Haiku y dos hooks `PreToolUse`.
    concreta, lee lo que haga falta y devuelve un extracto con referencias
    `ruta:línea`. Nunca vuelca el archivo.
 2. **Dos hooks** que bloquean el volcado íntegro de archivos por encima de un
-   umbral (350 líneas por defecto) y redirigen a ese subagente:
+   umbral (350 líneas **o** 24 KB por defecto) y redirigen a ese subagente.
+   El de bytes existe por los ficheros de pocas líneas muy largas, típicamente
+   Markdown de planes: 233 líneas pueden pesar 77 KB (~20k tokens) y el umbral
+   de líneas no los ve:
    - `shunt-file-size.sh` sobre la tool `Read`
    - `shunt-bash-read.sh` sobre `Bash` (`cat`, `head`, `tail`, `sed -n`, `nl`, `bat`)
 
@@ -104,10 +107,15 @@ lo ejecutará por ti.
 
 | | Ámbito |
 |---|---|
-| `SHUNT_OFF` / `SHUNT_MIN_LINES` en el entorno | ese comando |
+| `SHUNT_OFF` / `SHUNT_MIN_LINES` / `SHUNT_MAX_BYTES` en el entorno | ese comando |
 | `~/.claude/shunt-state/<session_id>` | la sesión |
 | `~/.claude/shunt-state/global` | todas |
-| Defaults | activo, 350 líneas |
+| Defaults | activo, 350 líneas o 24 KB |
+
+`shunt <n>` solo ajusta el umbral de líneas; el de bytes se cambia con
+`SHUNT_MAX_BYTES`. Las lecturas acotadas (`offset`/`limit`, `head -N`,
+`sed -n 'A,Bp'`) pasan por líneas pedidas, no por peso: un rango corto de un
+Markdown muy ancho sigue pasando.
 
 ## Ajustes
 
